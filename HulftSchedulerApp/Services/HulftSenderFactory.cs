@@ -1,3 +1,5 @@
+using System;
+using System.Configuration;
 using HulftSchedulerApp.Logging;
 
 namespace HulftSchedulerApp.Services
@@ -6,14 +8,26 @@ namespace HulftSchedulerApp.Services
     {
         public static IHulftSender Create(LogService logService)
         {
-            if (RealHulftSender.IsHulftInstalled())
-            {
-                logService?.Write("HULFTが検出されたため RealHulftSender を利用します。");
-                return new RealHulftSender();
-            }
+            var mode = (ConfigurationManager.AppSettings["HulftSenderMode"] ?? "Auto").Trim();
 
-            logService?.Write("HULFT未インストールのため DummyHulftSender で送信をスキップします。");
-            return new DummyHulftSender();
+            switch (mode.ToUpperInvariant())
+            {
+                case "REAL":
+                    logService?.Write("App.config で REAL が指定されたため RealHulftSender を利用します。");
+                    return new RealHulftSender(logService);
+                case "DUMMY":
+                    logService?.Write("App.config で DUMMY が指定されたため DummyHulftSender を利用します。");
+                    return new DummyHulftSender();
+                default:
+                    if (RealHulftSender.IsEnvironmentReady(out var reason))
+                    {
+                        logService?.Write($"HULFT 環境を検出したため RealHulftSender を利用します。({reason})");
+                        return new RealHulftSender(logService);
+                    }
+
+                    logService?.Write($"HULFT 環境が整っていないため DummyHulftSender を利用します。({reason})");
+                    return new DummyHulftSender();
+            }
         }
     }
 }

@@ -19,8 +19,8 @@ HulftScheduler.sln
    ├─ Logging/LogService.cs     : UI＋ファイルへのログ出力
    └─ Services/
         ├─ IHulftSender.cs      : 送信インターフェース
-        ├─ HulftSenderFactory   : 環境に応じて送信クラスを選択
-        ├─ RealHulftSender      : HULFT 有り前提のスタブ実装
+        ├─ HulftSenderFactory   : App.config で送信クラスを選択
+        ├─ RealHulftSender      : HULFT API(utlsendex) を直接呼び出す実装
         └─ DummyHulftSender     : HULFT 無し時のスキップ実装
 ```
 
@@ -32,11 +32,14 @@ HulftScheduler.sln
 > Linux 上の dotnet CLI では .NET Framework プロジェクトをビルドできないため、必ず Windows 環境でビルドしてください。
 
 ## 送信スタブの切り替え
-`RealHulftSender.IsHulftInstalled()` が以下のいずれかで真になると Real 版を利用します。
-- `HULFT_INSTALLED` 環境変数に `1` を設定
-- `C:\Program Files\HULFT` ディレクトリが存在する
+`App.config` の `appSettings` に以下のキーを追加済みです。
 
-上記以外の環境では `DummyHulftSender` が選択され、「HULFT未インストールのため送信をスキップ」とログに出力されます。実際の HULFT 連携ロジックは `RealHulftSender.SendFile` 内に実装してください。
+| キー | 説明 |
+| --- | --- |
+| `HulftSenderMode` | `Auto` (既定) / `Real` / `Dummy`。Auto は `hulftrt.dll` と `hulapi.dll` が読み込める場合のみ `RealHulftSender` を選択します。 |
+| `HulftHostName` | `RealHulftSender` が `utlsendex` を呼び出す際の接続先ホスト名。HULFT 環境に合わせて設定してください。 |
+
+`RealHulftSender` は `kernel32.dll` 経由で `LoadLibrary` と `GetProcAddress` を使用し、`hulapi.dll` の `utlsendex` を直接呼び出す実装です。DLL が見つからない／API が取得できない場合はログに詳細を出力し、UI にも失敗メッセージを返します。`DummyHulftSender` は検証用スタブとして「HULFT未インストールのため送信をスキップ」と記録するだけで、実際の送信処理は行いません。
 
 ## 実行例ログ
 ```
